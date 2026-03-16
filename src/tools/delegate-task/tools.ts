@@ -1,6 +1,6 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import type { DelegateTaskArgs, ToolContextWithMetadata, DelegateTaskToolOptions } from "./types"
-import { CATEGORY_DESCRIPTIONS } from "./constants"
+import { CATEGORY_DESCRIPTIONS, DELEGATION_GUIDANCE } from "./constants"
 import { SISYPHUS_JUNIOR_AGENT } from "./sisyphus-junior-agent"
 import { mergeCategories } from "../../shared/merge-categories"
 import { log } from "../../shared/logger"
@@ -53,7 +53,14 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
     return desc ? `  - ${name}: ${desc}` : `  - ${name}`
   }).join("\n")
 
+  const availableSubagents = options.availableSubagents ?? []
+  const subagentList = availableSubagents
+    .map(sa => `  - ${sa.name}: ${sa.description}`)
+    .join("\n")
+
   const description = `Spawn agent task with category-based or direct agent selection.
+
+${DELEGATION_GUIDANCE}
   
   ⚠️  CRITICAL: You MUST provide EITHER category OR subagent_type. Omitting BOTH will FAIL.
   
@@ -81,8 +88,10 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
   - load_skills: ALWAYS REQUIRED. Pass [] if no skills needed, or ["skill-1", "skill-2"] for category tasks.
   - category: Use predefined category → Spawns Sisyphus-Junior with category config
     Available categories:
-  ${categoryList}
-  - subagent_type: Use specific agent directly (explore, librarian, oracle, metis, momus)
+${categoryList}
+  - subagent_type: Use specific agent directly
+    Available subagents:
+${subagentList}
   - run_in_background: true=async (returns task_id), false=sync (waits). Default: false. Use background=true ONLY for parallel exploration with 5+ independent queries.
   - session_id: Existing Task session to continue (from previous task output). Continues agent with FULL CONTEXT PRESERVED - saves tokens, maintains continuity.
   - command: The command that triggered this task (optional, for slash command tracking).

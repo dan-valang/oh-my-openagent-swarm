@@ -316,6 +316,34 @@ export const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 }
 
 /**
+ * Descriptions for built-in subagents, keyed by `subagent_type`.
+ *
+ * IMPORTANT: Keep keys alphabetically ordered for stable, predictable rendering.
+ */
+export const BUILTIN_SUBAGENT_DESCRIPTIONS: Record<string, string> = {
+  explore: "Codebase exploration: search patterns, locate files, map implementations.",
+  hephaestus: "Deep implementation: multi-file coding, refactors, end-to-end changes.",
+  librarian: "Documentation research: APIs, references, examples, best practices.",
+  metis: "Pre-planning analysis: identify ambiguities, edge cases, and risks.",
+  momus: "Plan review and QA: critique plans for completeness and correctness.",
+  "multimodal-looker": "Visual analysis: interpret images/PDFs/diagrams and extract details.",
+  oracle: "Architecture and debugging: design decisions, root-cause analysis, complex reasoning.",
+  prometheus: "Planning: structured implementation plans with dependencies and verification.",
+}
+
+/**
+ * Delegation guidance used in tool descriptions.
+ *
+ * Rule of thumb: prefer `subagent_type` for specialized work, and use `category`
+ * only when you want Sisyphus-Junior with category-driven model selection.
+ */
+export const DELEGATION_GUIDANCE = `Delegation priority: subagent_type > category.
+
+- Use subagent_type to invoke a specific specialized agent (explore, librarian, oracle, metis, momus, hephaestus, multimodal-looker, prometheus).
+- Use category to delegate to Sisyphus-Junior with category-optimized model selection and prompts.
+- Do not provide both. If category is provided, subagent_type is ignored.`
+
+/**
  * System prompt prepended to plan agent invocations.
  * Instructs the plan agent to first gather context via explore/librarian agents,
  * then summarize user requirements and clarify uncertainties before proceeding.

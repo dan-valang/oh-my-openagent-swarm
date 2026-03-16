@@ -4,8 +4,10 @@ import type { BrowserAutomationProvider } from "./config/schema/browser-automati
 import type { LoadedSkill } from "./features/opencode-skill-loader/types"
 import type { PluginContext, ToolsRecord } from "./plugin/types"
 import type { Managers } from "./create-managers"
+import type { AvailableSubagent } from "./tools/delegate-task/types"
 
 import { createAvailableCategories } from "./plugin/available-categories"
+import { createAvailableSubagents } from "./plugin/available-subagents"
 import { createSkillContext } from "./plugin/skill-context"
 import { createToolRegistry } from "./plugin/tool-registry"
 
@@ -14,6 +16,7 @@ export type CreateToolsResult = {
   mergedSkills: LoadedSkill[]
   availableSkills: AvailableSkill[]
   availableCategories: AvailableCategory[]
+  availableSubagents: AvailableSubagent[]
   browserProvider: BrowserAutomationProvider
   disabledSkills: Set<string>
   taskSystemEnabled: boolean
@@ -32,6 +35,7 @@ export async function createTools(args: {
   })
 
   const availableCategories = createAvailableCategories(pluginConfig)
+  const availableSubagents = createAvailableSubagents(pluginConfig.disabled_agents)
 
   const { filteredTools, taskSystemEnabled } = createToolRegistry({
     ctx,
@@ -39,6 +43,7 @@ export async function createTools(args: {
     managers,
     skillContext,
     availableCategories,
+    availableSubagents,
   })
 
   return {
@@ -46,6 +51,7 @@ export async function createTools(args: {
     mergedSkills: skillContext.mergedSkills,
     availableSkills: skillContext.availableSkills,
     availableCategories,
+    availableSubagents,
     browserProvider: skillContext.browserProvider,
     disabledSkills: skillContext.disabledSkills,
     taskSystemEnabled,

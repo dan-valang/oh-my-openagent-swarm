@@ -1,6 +1,6 @@
 declare const require: (name: string) => any
 const { describe, test, expect, beforeEach, afterEach, spyOn, mock } = require("bun:test")
-import { DEFAULT_CATEGORIES, CATEGORY_PROMPT_APPENDS, CATEGORY_DESCRIPTIONS, isPlanAgent, PLAN_AGENT_NAMES, isPlanFamily, PLAN_FAMILY_NAMES } from "./constants"
+import { DEFAULT_CATEGORIES, CATEGORY_PROMPT_APPENDS, CATEGORY_DESCRIPTIONS, isPlanAgent, PLAN_AGENT_NAMES, isPlanFamily, PLAN_FAMILY_NAMES, BUILTIN_SUBAGENT_DESCRIPTIONS, DELEGATION_GUIDANCE } from "./constants"
 import { resolveCategoryConfig } from "./tools"
 import type { CategoryConfig } from "../../config/schema"
 import type { DelegateTaskArgs } from "./types"
@@ -270,6 +270,38 @@ describe("sisyphus-task", () => {
     test("PLAN_FAMILY_NAMES contains plan and prometheus", () => {
       //#given / #when / #then
       expect(PLAN_FAMILY_NAMES).toEqual(["plan", "prometheus"])
+    })
+  })
+
+  describe("BUILTIN_SUBAGENT_DESCRIPTIONS", () => {
+    test("contains all builtin subagents in alphabetical order", () => {
+      // given / when
+      const keys = Object.keys(BUILTIN_SUBAGENT_DESCRIPTIONS)
+
+      // then
+      expect(keys).toEqual([
+        "explore",
+        "hephaestus",
+        "librarian",
+        "metis",
+        "momus",
+        "multimodal-looker",
+        "oracle",
+        "prometheus",
+      ])
+      for (const key of keys) {
+        expect(typeof BUILTIN_SUBAGENT_DESCRIPTIONS[key]).toBe("string")
+        expect(BUILTIN_SUBAGENT_DESCRIPTIONS[key].length).toBeGreaterThan(0)
+      }
+    })
+  })
+
+  describe("DELEGATION_GUIDANCE", () => {
+    test("explains when to use subagent_type vs category", () => {
+      // then
+      expect(DELEGATION_GUIDANCE).toContain("subagent_type")
+      expect(DELEGATION_GUIDANCE).toContain("category")
+      expect(DELEGATION_GUIDANCE).toContain("subagent_type > category")
     })
   })
 
