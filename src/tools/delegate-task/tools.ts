@@ -69,27 +69,27 @@ ${DELEGATION_GUIDANCE}
   task(description="...", prompt="...", run_in_background=false)  // ❌ FAILS - missing category AND subagent_type
   \`\`\`
   
+  **CORRECT - Using subagent_type:**
+  \`\`\`
+  task(subagent_type="explore", load_skills=[], description="Find patterns", prompt="...", run_in_background=true)
+  \`\`\`
+
   **CORRECT - Using category:**
   \`\`\`
   task(category="quick", load_skills=[], description="Fix type error", prompt="...", run_in_background=false)
   \`\`\`
   
-  **CORRECT - Using subagent_type:**
-  \`\`\`
-  task(subagent_type="explore", load_skills=[], description="Find patterns", prompt="...", run_in_background=true)
-  \`\`\`
-  
   REQUIRED: Provide ONE of:
-  - category: For task delegation (uses Sisyphus-Junior with category-optimized model)
-  - subagent_type: For direct agent invocation (explore, librarian, oracle, etc.)
+  - subagent_type: For direct agent invocation (specialized agents with domain expertise)
+  - category: For task delegation (uses Sisyphus-Junior with category-optimized model selection and prompts)
   
   **DO NOT provide both.** If category is provided, subagent_type is ignored.
   
   - load_skills: ALWAYS REQUIRED. Pass [] if no skills needed, or ["skill-1", "skill-2"] for category tasks.
-  - category: Use predefined category → Spawns Sisyphus-Junior with category config
+  - category: For task delegation (uses Sisyphus-Junior with category-optimized model selection and prompts)
     Available categories:
 ${categoryList}
-  - subagent_type: Use specific agent directly
+  - subagent_type: For direct agent invocation (explore, librarian, oracle, etc.)
     Available subagents:
 ${subagentList}
   - run_in_background: true=async (returns task_id), false=sync (waits). Default: false. Use background=true ONLY for parallel exploration with 5+ independent queries.

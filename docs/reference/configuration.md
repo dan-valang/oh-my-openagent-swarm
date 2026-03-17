@@ -371,6 +371,24 @@ Enable the Sisyphus Tasks system for cross-session task tracking.
 
 ## Features
 
+### Claude Code Compatibility
+
+The `claude_code` section controls whether compatibility loaders read Claude-format files from `.claude/` locations.
+
+```json
+{
+  "claude_code": {
+    "agents": false
+  }
+}
+```
+
+For agents specifically:
+
+- `claude_code.agents !== false` loads Claude markdown agents from `~/.claude/agents` and project `.claude/agents`
+- `~/.config/opencode/agents` is always loaded
+- if the same agent name exists in both places, the OpenCode agent wins
+
 ### Skills
 
 Skills bring domain-specific expertise and embedded MCPs.

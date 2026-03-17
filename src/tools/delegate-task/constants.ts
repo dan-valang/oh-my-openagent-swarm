@@ -449,11 +449,11 @@ WHY THIS MATTERS:
 
 
 ═══════════════════════════════════════════════════════════════════
-█ SECTION 3: CATEGORY + SKILLS RECOMMENDATIONS (MANDATORY)        █
+█ SECTION 3: AGENT ROUTING + SKILLS RECOMMENDATIONS (MANDATORY)   █
 ═══════════════════════════════════════════════════════════════════
 
 FOR EVERY TASK, YOU MUST RECOMMEND:
-1. Which CATEGORY to use for delegation
+1. Which AGENT ROUTING to use for delegation
 2. Which SKILLS to load for the delegated agent
 `
 
@@ -465,7 +465,9 @@ For EACH task, include a recommendation block:
 ### Task N: [Task Title]
 
 **Delegation Recommendation:**
-- Category: \`[category-name]\` - [reason for choice]
+- Agent: \`[subagent_type or category]\` - [reason for choice]
+  - If task needs a specialized agent (explore, oracle, librarian, etc.) -> use subagent_type
+  - If task needs a generic executor with specific model tier -> use category
 - Skills: [\`skill-1\`, \`skill-2\`] - [reason each skill is needed]
 
 **Skills Evaluation:**
@@ -474,10 +476,10 @@ For EACH task, include a recommendation block:
 \`\`\`
 
 WHY THIS MATTERS:
-- Category determines the MODEL used for execution
+- Agent routing determines whether execution uses a specialized subagent or category-based Sisyphus-Junior
 - Skills inject SPECIALIZED KNOWLEDGE into the executor
 - Missing a relevant skill = suboptimal execution
-- Wrong category = wrong model = poor results
+- Wrong routing = wrong executor/model = poor results
 
 
 ═══════════════════════════════════════════════════════════════════
@@ -503,7 +505,7 @@ YOUR PLAN OUTPUT MUST FOLLOW THIS EXACT STRUCTURE:
 ### Task 1: [Title]
 **Description**: [What to do]
 **Delegation Recommendation**:
-- Category: \`[category]\` - [reason]
+- Agent: \`[subagent_type or category]\` - [reason]
 - Skills: [\`skill-1\`] - [reason]
 **Skills Evaluation**: [✅ included / ❌ omitted with reasons]
 **Depends On**: [Task IDs or "None"]
@@ -545,7 +547,7 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
   - What: [Clear implementation steps]
   - Depends: None
   - Blocks: [Tasks that depend on this]
-  - Category: \`category-name\`
+  - Agent: \`subagent_type or category\`
   - Skills: [\`skill-1\`, \`skill-2\`]
   - QA: [How to verify completion - specific command or check]
 
@@ -553,7 +555,7 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
   - What: [Steps]
   - Depends: None
   - Blocks: [...]
-  - Category: \`category-name\`
+  - Agent: \`subagent_type or category\`
   - Skills: [\`skill-1\`]
   - QA: [Verification]
 
@@ -563,7 +565,7 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
   - What: [Steps]
   - Depends: 1
   - Blocks: [4]
-  - Category: \`category-name\`
+  - Agent: \`subagent_type or category\`
   - Skills: [\`skill-1\`]
   - QA: [Verification]
 
@@ -573,13 +575,13 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
 
 1. **Wave 1**: Fire these tasks IN PARALLEL (no dependencies)
    \`\`\`
-   task(category="...", load_skills=[...], run_in_background=false, prompt="Task 1: ...")
+   task(subagent_type="...", load_skills=[...], run_in_background=false, prompt="Task 1: ...")
    task(category="...", load_skills=[...], run_in_background=false, prompt="Task N: ...")
    \`\`\`
 
 2. **Wave 2**: After Wave 1 completes, fire next wave IN PARALLEL
    \`\`\`
-   task(category="...", load_skills=[...], run_in_background=false, prompt="Task 2: ...")
+   task(subagent_type="...", load_skills=[...], run_in_background=false, prompt="Task 2: ...")
    \`\`\`
 
 3. Continue until all waves complete

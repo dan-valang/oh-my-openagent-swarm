@@ -11,7 +11,11 @@ import {
   discoverProjectClaudeSkills,
   discoverUserClaudeSkills,
 } from "../features/opencode-skill-loader";
-import { loadProjectAgents, loadUserAgents } from "../features/claude-code-agent-loader";
+import {
+  loadClaudeUserAgents,
+  loadOpenCodeUserAgents,
+  loadProjectAgents,
+} from "../features/claude-code-agent-loader";
 import type { PluginComponents } from "./plugin-components-loader";
 import { reorderAgentsByPriority } from "./agent-priority-order";
 import { remapAgentKeysToDisplayNames } from "./agent-key-remapper";
@@ -83,7 +87,10 @@ export async function applyAgentConfig(params: {
   const disableOmoEnv = params.pluginConfig.experimental?.disable_omo_env ?? false;
 
   const includeClaudeAgents = params.pluginConfig.claude_code?.agents ?? true;
-  const userAgents = includeClaudeAgents ? loadUserAgents() : {};
+  const userAgents = {
+    ...(includeClaudeAgents ? loadClaudeUserAgents() : {}),
+    ...loadOpenCodeUserAgents(),
+  };
   const projectAgents = includeClaudeAgents ? loadProjectAgents(params.ctx.directory) : {};
   const rawPluginAgents = params.pluginComponents.agents;
 
