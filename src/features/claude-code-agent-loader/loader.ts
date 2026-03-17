@@ -1,8 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from "fs"
+import { existsSync, readdirSync, readFileSync, type Dirent } from "fs"
 import { join, basename } from "path"
 import { parseFrontmatter } from "../../shared/frontmatter"
 import { isMarkdownFile } from "../../shared/file-utils"
-import { getClaudeConfigDir } from "../../shared"
+import { getClaudeConfigDir, getOpenCodeConfigDir } from "../../shared"
+import { log } from "../../shared/logger"
 import type { AgentScope, AgentFrontmatter, ClaudeCodeAgentConfig, LoadedAgent } from "./types"
 import { mapClaudeModelToOpenCode } from "./claude-model-mapper"
 
@@ -24,7 +25,14 @@ function loadAgentsFromDir(agentsDir: string, scope: AgentScope): LoadedAgent[] 
     return []
   }
 
-  const entries = readdirSync(agentsDir, { withFileTypes: true })
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(agentsDir, { withFileTypes: true })
+  } catch (error) {
+    log(`Failed to read agent directory: ${agentsDir}`, error)
+    return []
+  }
+
   const agents: LoadedAgent[] = []
 
   for (const entry of entries) {
@@ -43,12 +51,15 @@ function loadAgentsFromDir(agentsDir: string, scope: AgentScope): LoadedAgent[] 
        const formattedDescription = `(${scope}) ${originalDescription}`
 
        const mappedModelOverride = mapClaudeModelToOpenCode(data.model)
+       const modelString = mappedModelOverride
+         ? `${mappedModelOverride.providerID}/${mappedModelOverride.modelID}`
+         : undefined
 
        const config: ClaudeCodeAgentConfig = {
          description: formattedDescription,
          mode: data.mode || "subagent",
          prompt: body.trim(),
-         ...(mappedModelOverride ? { model: mappedModelOverride } : {}),
+         ...(modelString ? { model: modelString } : {}),
        }
 
        const toolsConfig = parseToolsConfig(data.tools)
@@ -62,22 +73,55 @@ function loadAgentsFromDir(agentsDir: string, scope: AgentScope): LoadedAgent[] 
         config,
         scope,
       })
-    } catch {
+    } catch (error) {
+      log(`Failed to parse agent: ${agentPath}`, error)
       continue
     }
   }
+
+  log(`Loaded ${agents.length} agent(s) from ${scope} directory`, { path: agentsDir })
 
   return agents
 }
 
 export function loadUserAgents(): Record<string, ClaudeCodeAgentConfig> {
-  const userAgentsDir = join(getClaudeConfigDir(), "agents")
-  const agents = loadAgentsFromDir(userAgentsDir, "user")
+  return {
+    ...loadClaudeUserAgents(),
+    ...loadOpenCodeUserAgents(),
+  }
+}
+
+export function loadClaudeUserAgents(): Record<string, ClaudeCodeAgentConfig> {
+  const claudeAgentsDir = join(getClaudeConfigDir(), "agents")
+  const claudeAgents = loadAgentsFromDir(claudeAgentsDir, "user")
 
   const result: Record<string, ClaudeCodeAgentConfig> = {}
-  for (const agent of agents) {
+  for (const agent of claudeAgents) {
     result[agent.name] = agent.config
   }
+
+  log("Loaded Claude user agents", {
+    claudeAgentsDir,
+    count: claudeAgents.length,
+  })
+
+  return result
+}
+
+export function loadOpenCodeUserAgents(): Record<string, ClaudeCodeAgentConfig> {
+  const opencodeAgentsDir = join(getOpenCodeConfigDir({ binary: "opencode" }), "agents")
+  const opencodeAgents = loadAgentsFromDir(opencodeAgentsDir, "user")
+
+  const result: Record<string, ClaudeCodeAgentConfig> = {}
+  for (const agent of opencodeAgents) {
+    result[agent.name] = agent.config
+  }
+
+  log("Loaded OpenCode user agents", {
+    opencodeAgentsDir,
+    count: opencodeAgents.length,
+  })
+
   return result
 }
 
@@ -89,5 +133,11 @@ export function loadProjectAgents(directory?: string): Record<string, ClaudeCode
   for (const agent of agents) {
     result[agent.name] = agent.config
   }
+
+  log("Loaded project agents", {
+    projectAgentsDir,
+    count: agents.length,
+  })
+
   return result
 }

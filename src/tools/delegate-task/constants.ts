@@ -316,6 +316,34 @@ export const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 }
 
 /**
+ * Descriptions for built-in subagents, keyed by `subagent_type`.
+ *
+ * IMPORTANT: Keep keys alphabetically ordered for stable, predictable rendering.
+ */
+export const BUILTIN_SUBAGENT_DESCRIPTIONS: Record<string, string> = {
+  explore: "Codebase exploration: search patterns, locate files, map implementations.",
+  hephaestus: "Deep implementation: multi-file coding, refactors, end-to-end changes.",
+  librarian: "Documentation research: APIs, references, examples, best practices.",
+  metis: "Pre-planning analysis: identify ambiguities, edge cases, and risks.",
+  momus: "Plan review and QA: critique plans for completeness and correctness.",
+  "multimodal-looker": "Visual analysis: interpret images/PDFs/diagrams and extract details.",
+  oracle: "Architecture and debugging: design decisions, root-cause analysis, complex reasoning.",
+  prometheus: "Planning: structured implementation plans with dependencies and verification.",
+}
+
+/**
+ * Delegation guidance used in tool descriptions.
+ *
+ * Rule of thumb: prefer `subagent_type` for specialized work, and use `category`
+ * only when you want Sisyphus-Junior with category-driven model selection.
+ */
+export const DELEGATION_GUIDANCE = `Delegation priority: subagent_type > category.
+
+- Use subagent_type to invoke a specific specialized agent (explore, librarian, oracle, metis, momus, hephaestus, multimodal-looker, prometheus).
+- Use category to delegate to Sisyphus-Junior with category-optimized model selection and prompts.
+- Do not provide both. If category is provided, subagent_type is ignored.`
+
+/**
  * System prompt prepended to plan agent invocations.
  * Instructs the plan agent to first gather context via explore/librarian agents,
  * then summarize user requirements and clarify uncertainties before proceeding.
@@ -421,11 +449,11 @@ WHY THIS MATTERS:
 
 
 ═══════════════════════════════════════════════════════════════════
-█ SECTION 3: CATEGORY + SKILLS RECOMMENDATIONS (MANDATORY)        █
+█ SECTION 3: AGENT ROUTING + SKILLS RECOMMENDATIONS (MANDATORY)   █
 ═══════════════════════════════════════════════════════════════════
 
 FOR EVERY TASK, YOU MUST RECOMMEND:
-1. Which CATEGORY to use for delegation
+1. Which AGENT ROUTING to use for delegation
 2. Which SKILLS to load for the delegated agent
 `
 
@@ -437,7 +465,9 @@ For EACH task, include a recommendation block:
 ### Task N: [Task Title]
 
 **Delegation Recommendation:**
-- Category: \`[category-name]\` - [reason for choice]
+- Agent: \`[subagent_type or category]\` - [reason for choice]
+  - If task needs a specialized agent (explore, oracle, librarian, etc.) -> use subagent_type
+  - If task needs a generic executor with specific model tier -> use category
 - Skills: [\`skill-1\`, \`skill-2\`] - [reason each skill is needed]
 
 **Skills Evaluation:**
@@ -446,10 +476,10 @@ For EACH task, include a recommendation block:
 \`\`\`
 
 WHY THIS MATTERS:
-- Category determines the MODEL used for execution
+- Agent routing determines whether execution uses a specialized subagent or category-based Sisyphus-Junior
 - Skills inject SPECIALIZED KNOWLEDGE into the executor
 - Missing a relevant skill = suboptimal execution
-- Wrong category = wrong model = poor results
+- Wrong routing = wrong executor/model = poor results
 
 
 ═══════════════════════════════════════════════════════════════════
@@ -475,7 +505,7 @@ YOUR PLAN OUTPUT MUST FOLLOW THIS EXACT STRUCTURE:
 ### Task 1: [Title]
 **Description**: [What to do]
 **Delegation Recommendation**:
-- Category: \`[category]\` - [reason]
+- Agent: \`[subagent_type or category]\` - [reason]
 - Skills: [\`skill-1\`] - [reason]
 **Skills Evaluation**: [✅ included / ❌ omitted with reasons]
 **Depends On**: [Task IDs or "None"]
@@ -517,7 +547,7 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
   - What: [Clear implementation steps]
   - Depends: None
   - Blocks: [Tasks that depend on this]
-  - Category: \`category-name\`
+  - Agent: \`subagent_type or category\`
   - Skills: [\`skill-1\`, \`skill-2\`]
   - QA: [How to verify completion - specific command or check]
 
@@ -525,7 +555,7 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
   - What: [Steps]
   - Depends: None
   - Blocks: [...]
-  - Category: \`category-name\`
+  - Agent: \`subagent_type or category\`
   - Skills: [\`skill-1\`]
   - QA: [Verification]
 
@@ -535,7 +565,7 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
   - What: [Steps]
   - Depends: 1
   - Blocks: [4]
-  - Category: \`category-name\`
+  - Agent: \`subagent_type or category\`
   - Skills: [\`skill-1\`]
   - QA: [Verification]
 
@@ -545,13 +575,13 @@ YOU MUST END YOUR RESPONSE WITH THIS SECTION.
 
 1. **Wave 1**: Fire these tasks IN PARALLEL (no dependencies)
    \`\`\`
-   task(category="...", load_skills=[...], run_in_background=false, prompt="Task 1: ...")
+   task(subagent_type="...", load_skills=[...], run_in_background=false, prompt="Task 1: ...")
    task(category="...", load_skills=[...], run_in_background=false, prompt="Task N: ...")
    \`\`\`
 
 2. **Wave 2**: After Wave 1 completes, fire next wave IN PARALLEL
    \`\`\`
-   task(category="...", load_skills=[...], run_in_background=false, prompt="Task 2: ...")
+   task(subagent_type="...", load_skills=[...], run_in_background=false, prompt="Task 2: ...")
    \`\`\`
 
 3. Continue until all waves complete

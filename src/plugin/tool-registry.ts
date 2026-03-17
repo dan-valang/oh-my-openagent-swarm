@@ -5,6 +5,7 @@ import type {
 } from "../agents/dynamic-agent-prompt-builder"
 import type { OhMyOpenCodeConfig } from "../config"
 import type { PluginContext, ToolsRecord } from "./types"
+import type { AvailableSubagent } from "../tools/delegate-task/types"
 
 import {
   builtinTools,
@@ -45,8 +46,9 @@ export function createToolRegistry(args: {
   managers: Pick<Managers, "backgroundManager" | "tmuxSessionManager" | "skillMcpManager">
   skillContext: SkillContext
   availableCategories: AvailableCategory[]
+  availableSubagents: AvailableSubagent[]
 }): ToolRegistryResult {
-  const { ctx, pluginConfig, managers, skillContext, availableCategories } = args
+  const { ctx, pluginConfig, managers, skillContext, availableCategories, availableSubagents } = args
 
   const backgroundTools = createBackgroundTools(managers.backgroundManager, ctx.client)
   const callOmoAgent = createCallOmoAgent(
@@ -74,6 +76,7 @@ export function createToolRegistry(args: {
     disabledSkills: skillContext.disabledSkills,
     availableCategories,
     availableSkills: skillContext.availableSkills,
+    availableSubagents,
     syncPollTimeoutMs: pluginConfig.background_task?.syncPollTimeoutMs,
     onSyncSessionCreated: async (event) => {
       log("[index] onSyncSessionCreated callback", {

@@ -1,6 +1,6 @@
 import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import type { DelegateTaskArgs, ToolContextWithMetadata, DelegateTaskToolOptions } from "./types"
-import { CATEGORY_DESCRIPTIONS } from "./constants"
+import { CATEGORY_DESCRIPTIONS, DELEGATION_GUIDANCE } from "./constants"
 import { SISYPHUS_JUNIOR_AGENT } from "./sisyphus-junior-agent"
 import { mergeCategories } from "../../shared/merge-categories"
 import { log } from "../../shared/logger"
@@ -53,7 +53,14 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
     return desc ? `  - ${name}: ${desc}` : `  - ${name}`
   }).join("\n")
 
+  const availableSubagents = options.availableSubagents ?? []
+  const subagentList = availableSubagents
+    .map(sa => `  - ${sa.name}: ${sa.description}`)
+    .join("\n")
+
   const description = `Spawn agent task with category-based or direct agent selection.
+
+${DELEGATION_GUIDANCE}
   
   ⚠️  CRITICAL: You MUST provide EITHER category OR subagent_type. Omitting BOTH will FAIL.
   
@@ -62,27 +69,29 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
   task(description="...", prompt="...", run_in_background=false)  // ❌ FAILS - missing category AND subagent_type
   \`\`\`
   
+  **CORRECT - Using subagent_type:**
+  \`\`\`
+  task(subagent_type="explore", load_skills=[], description="Find patterns", prompt="...", run_in_background=true)
+  \`\`\`
+
   **CORRECT - Using category:**
   \`\`\`
   task(category="quick", load_skills=[], description="Fix type error", prompt="...", run_in_background=false)
   \`\`\`
   
-  **CORRECT - Using subagent_type:**
-  \`\`\`
-  task(subagent_type="explore", load_skills=[], description="Find patterns", prompt="...", run_in_background=true)
-  \`\`\`
-  
   REQUIRED: Provide ONE of:
-  - category: For task delegation (uses Sisyphus-Junior with category-optimized model)
-  - subagent_type: For direct agent invocation (explore, librarian, oracle, etc.)
+  - subagent_type: For direct agent invocation (specialized agents with domain expertise)
+  - category: For task delegation (uses Sisyphus-Junior with category-optimized model selection and prompts)
   
   **DO NOT provide both.** If category is provided, subagent_type is ignored.
   
   - load_skills: ALWAYS REQUIRED. Pass [] if no skills needed, or ["skill-1", "skill-2"] for category tasks.
-  - category: Use predefined category → Spawns Sisyphus-Junior with category config
+  - category: For task delegation (uses Sisyphus-Junior with category-optimized model selection and prompts)
     Available categories:
-  ${categoryList}
-  - subagent_type: Use specific agent directly (explore, librarian, oracle, metis, momus)
+${categoryList}
+  - subagent_type: For direct agent invocation (explore, librarian, oracle, etc.)
+    Available subagents:
+${subagentList}
   - run_in_background: true=async (returns task_id), false=sync (waits). Default: false. Use background=true ONLY for parallel exploration with 5+ independent queries.
   - session_id: Existing Task session to continue (from previous task output). Continues agent with FULL CONTEXT PRESERVED - saves tokens, maintains continuity.
   - command: The command that triggered this task (optional, for slash command tracking).
@@ -100,7 +109,7 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
       load_skills: tool.schema.array(tool.schema.string()).describe("Skill names to inject. REQUIRED - pass [] if no skills needed."),
       description: tool.schema.string().describe("Short task description (3-5 words)"),
       prompt: tool.schema.string().describe("Full detailed prompt for the agent"),
-      run_in_background: tool.schema.boolean().describe("true=async (returns task_id), false=sync (waits). Default: false"),
+      run_in_background: tool.schema.boolean().describe("REQUIRED. true=async (returns task_id), false=sync (waits). Use false for task delegation, true ONLY for parallel exploration."),
       category: tool.schema.string().optional().describe(`REQUIRED if subagent_type not provided. Do NOT provide both category and subagent_type.`),
       subagent_type: tool.schema.string().optional().describe("REQUIRED if category not provided. Do NOT provide both category and subagent_type."),
       session_id: tool.schema.string().optional().describe("Existing Task session to continue"),
@@ -123,11 +132,7 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
       })
 
       if (args.run_in_background === undefined) {
-        if (args.category || args.subagent_type || args.session_id) {
-          args.run_in_background = false
-        } else {
-          throw new Error(`Invalid arguments: 'run_in_background' parameter is REQUIRED. Use run_in_background=false for task delegation, run_in_background=true only for parallel exploration.`)
-        }
+        throw new Error(`Invalid arguments: 'run_in_background' parameter is REQUIRED. Specify run_in_background=false for task delegation, or run_in_background=true for parallel exploration.`)
       }
       if (typeof args.load_skills === "string") {
         try {

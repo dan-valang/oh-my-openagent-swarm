@@ -319,6 +319,7 @@ export function createEventHandler(args: {
       }
 
       if (sessionInfo?.id) {
+        const wasSyncSubagentSession = syncSubagentSessions.has(sessionInfo.id);
         clearSessionAgent(sessionInfo.id);
         lastHandledModelErrorMessageID.delete(sessionInfo.id);
         lastHandledRetryStatusKey.delete(sessionInfo.id);
@@ -329,6 +330,9 @@ export function createEventHandler(args: {
         firstMessageVariantGate.clear(sessionInfo.id);
         clearSessionModel(sessionInfo.id);
         syncSubagentSessions.delete(sessionInfo.id);
+        if (wasSyncSubagentSession) {
+          subagentSessions.delete(sessionInfo.id);
+        }
         deleteSessionTools(sessionInfo.id);
         await managers.skillMcpManager.disconnectSession(sessionInfo.id);
         await lspManager.cleanupTempDirectoryClients();
@@ -416,6 +420,12 @@ export function createEventHandler(args: {
     if (event.type === "session.status") {
       const sessionID = props?.sessionID as string | undefined;
       const status = props?.status as { type?: string; attempt?: number; message?: string; next?: number } | undefined;
+
+      // Retry dedupe lifecycle: set key when a retry status is handled, clear it after recovery
+      // (non-retry idle) so future failures with the same key can trigger fallback again.
+      if (sessionID && status?.type === "idle") {
+        lastHandledRetryStatusKey.delete(sessionID);
+      }
 
       if (sessionID && status?.type === "retry" && isModelFallbackEnabled && !isRuntimeFallbackEnabled) {
         try {

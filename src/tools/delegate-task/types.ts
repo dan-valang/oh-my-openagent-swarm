@@ -46,6 +46,11 @@ export interface SyncSessionCreatedEvent {
   title: string
 }
 
+export interface AvailableSubagent {
+  name: string
+  description: string
+}
+
 export interface DelegateTaskToolOptions {
   manager: BackgroundManager
   client: OpencodeClient
@@ -66,6 +71,7 @@ export interface DelegateTaskToolOptions {
   disabledSkills?: Set<string>
   availableCategories?: AvailableCategory[]
   availableSkills?: AvailableSkill[]
+  availableSubagents?: AvailableSubagent[]
   agentOverrides?: AgentOverrides
   onSyncSessionCreated?: (event: SyncSessionCreatedEvent) => Promise<void>
   syncPollTimeoutMs?: number
