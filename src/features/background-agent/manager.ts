@@ -52,10 +52,12 @@ import { join } from "node:path"
 import { pruneStaleTasksAndNotifications } from "./task-poller"
 import { checkAndInterruptStaleTasks } from "./task-poller"
 import { removeTaskToastTracking } from "./remove-task-toast-tracking"
+import { isActiveSessionStatus, isTerminalSessionStatus } from "./session-status-classifier"
 import {
   detectRepetitiveToolUse,
   recordToolCall,
   resolveCircuitBreakerSettings,
+  type CircuitBreakerSettings,
 } from "./loop-detector"
 import {
   createSubagentDepthLimitError,
@@ -74,7 +76,7 @@ interface MessagePartInfo {
   sessionID?: string
   type?: string
   tool?: string
-  state?: { status?: string }
+  state?: { status?: string; input?: Record<string, unknown> }
 }
 
 interface EventProperties {
@@ -151,6 +153,7 @@ export class BackgroundManager {
   private preStartDescendantReservations: Set<string>
   private enableParentSessionNotifications: boolean
   readonly taskHistory = new TaskHistory()
+  private cachedCircuitBreakerSettings?: CircuitBreakerSettings
 
   constructor(
     ctx: PluginInput,
@@ -900,47 +903,49 @@ export class BackgroundManager {
       task.progress.lastUpdate = new Date()
 
       if (partInfo?.type === "tool" || partInfo?.tool) {
-        const countedToolPartIDs = task.progress.countedToolPartIDs ?? []
+        const countedToolPartIDs = task.progress.countedToolPartIDs ?? new Set<string>()
         const shouldCountToolCall =
           !partInfo.id ||
           partInfo.state?.status !== "running" ||
-          !countedToolPartIDs.includes(partInfo.id)
+          !countedToolPartIDs.has(partInfo.id)
 
         if (!shouldCountToolCall) {
           return
         }
 
         if (partInfo.id && partInfo.state?.status === "running") {
-          task.progress.countedToolPartIDs = [...countedToolPartIDs, partInfo.id]
+          countedToolPartIDs.add(partInfo.id)
+          task.progress.countedToolPartIDs = countedToolPartIDs
         }
 
         task.progress.toolCalls += 1
         task.progress.lastTool = partInfo.tool
-        const circuitBreaker = resolveCircuitBreakerSettings(this.config)
+        const circuitBreaker = this.cachedCircuitBreakerSettings ?? (this.cachedCircuitBreakerSettings = resolveCircuitBreakerSettings(this.config))
         if (partInfo.tool) {
-          task.progress.toolCallWindow = recordToolCall(
-            task.progress.toolCallWindow,
-            partInfo.tool,
-            circuitBreaker
-          )
+         task.progress.toolCallWindow = recordToolCall(
+             task.progress.toolCallWindow,
+             partInfo.tool,
+             circuitBreaker,
+             partInfo.state?.input
+           )
 
-          const loopDetection = detectRepetitiveToolUse(task.progress.toolCallWindow)
-          if (loopDetection.triggered) {
-            log("[background-agent] Circuit breaker: repetitive tool usage detected", {
-              taskId: task.id,
-              agent: task.agent,
-              sessionID,
-              toolName: loopDetection.toolName,
-              repeatedCount: loopDetection.repeatedCount,
-              sampleSize: loopDetection.sampleSize,
-              thresholdPercent: loopDetection.thresholdPercent,
-            })
-            void this.cancelTask(task.id, {
-              source: "circuit-breaker",
-              reason: `Subagent repeatedly called ${loopDetection.toolName} ${loopDetection.repeatedCount}/${loopDetection.sampleSize} times in the recent tool-call window (${loopDetection.thresholdPercent}% threshold). This usually indicates an infinite loop. The task was automatically cancelled to prevent excessive token usage.`,
-            })
-            return
-          }
+           if (circuitBreaker.enabled) {
+             const loopDetection = detectRepetitiveToolUse(task.progress.toolCallWindow)
+             if (loopDetection.triggered) {
+               log("[background-agent] Circuit breaker: consecutive tool usage detected", {
+                 taskId: task.id,
+                 agent: task.agent,
+                 sessionID,
+                 toolName: loopDetection.toolName,
+                 repeatedCount: loopDetection.repeatedCount,
+               })
+               void this.cancelTask(task.id, {
+                 source: "circuit-breaker",
+                 reason: `Subagent called ${loopDetection.toolName} ${loopDetection.repeatedCount} consecutive times (threshold: ${circuitBreaker.consecutiveThreshold}). This usually indicates an infinite loop. The task was automatically cancelled to prevent excessive token usage.`,
+               })
+               return
+             }
+           }
         }
 
         const maxToolCalls = circuitBreaker.maxToolCalls
@@ -1779,11 +1784,9 @@ Use \`background_output(task_id="${task.id}")\` to retrieve this result when rea
           }
         }
 
-        // Match sync-session-poller pattern: only skip completion check when
-        // status EXISTS and is not idle (i.e., session is actively running).
-        // When sessionStatus is undefined, the session has completed and dropped
-        // from the status response — fall through to completion detection.
-        if (sessionStatus && sessionStatus.type !== "idle") {
+        // Only skip completion when session status is actively running.
+        // Unknown or terminal statuses (like "interrupted") fall through to completion.
+        if (sessionStatus && isActiveSessionStatus(sessionStatus.type)) {
           log("[background-agent] Session still running, relying on event-based progress:", {
             taskId: task.id,
             sessionID,
@@ -1791,6 +1794,24 @@ Use \`background_output(task_id="${task.id}")\` to retrieve this result when rea
             toolCalls: task.progress?.toolCalls ?? 0,
           })
           continue
+        }
+
+        // Explicit terminal non-idle status (e.g., "interrupted") — complete immediately,
+        // skipping output validation (session will never produce more output).
+        // Unknown statuses fall through to the idle/gone path with output validation.
+        if (sessionStatus && isTerminalSessionStatus(sessionStatus.type)) {
+          await this.tryCompleteTask(task, `polling (terminal session status: ${sessionStatus.type})`)
+          continue
+        }
+
+        // Unknown non-idle status — not active, not terminal, not idle.
+        // Fall through to idle/gone completion path with output validation.
+        if (sessionStatus && sessionStatus.type !== "idle") {
+          log("[background-agent] Unknown session status, treating as potentially idle:", {
+            taskId: task.id,
+            sessionID,
+            sessionStatus: sessionStatus.type,
+          })
         }
 
         // Session is idle or no longer in status response (completed/disappeared)

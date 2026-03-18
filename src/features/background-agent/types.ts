@@ -10,16 +10,16 @@ export type BackgroundTaskStatus =
   | "interrupt"
 
 export interface ToolCallWindow {
-  toolNames: string[]
-  windowSize: number
-  thresholdPercent: number
+  lastSignature: string
+  consecutiveCount: number
+  threshold: number
 }
 
 export interface TaskProgress {
   toolCalls: number
   lastTool?: string
   toolCallWindow?: ToolCallWindow
-  countedToolPartIDs?: string[]
+  countedToolPartIDs?: Set<string>
   lastUpdate: Date
   lastMessage?: string
   lastMessageAt?: Date
