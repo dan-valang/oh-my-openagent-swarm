@@ -25,6 +25,8 @@
 
 **8 Built-in Categories**: visual-engineering, ultrabrain, deep, artistry, quick, unspecified-low, unspecified-high, writing
 
+**Custom Subagents**: Dynamic agents from `~/.config/claude/agents/`, `~/.config/opencode/agents/`, `.claude/agents/`, and Claude Code plugins are automatically discovered and available via `subagent_type`.
+
 ### Agent Invocation (1)
 
 | Tool | Factory | Parameters |

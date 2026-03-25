@@ -7,10 +7,20 @@ import { log } from "../../shared/logger"
 import type { AgentScope, AgentFrontmatter, ClaudeCodeAgentConfig, LoadedAgent } from "./types"
 import { mapClaudeModelToOpenCode } from "./claude-model-mapper"
 
-function parseToolsConfig(toolsStr?: string): Record<string, boolean> | undefined {
-  if (!toolsStr) return undefined
+function parseToolsConfig(toolsValue?: string | Record<string, boolean>): Record<string, boolean> | undefined {
+  if (!toolsValue) return undefined
 
-  const tools = toolsStr.split(",").map((t) => t.trim()).filter(Boolean)
+  // YAML object form: `tools:\n  read: true\n  write: true`
+  if (typeof toolsValue === "object") {
+    const result: Record<string, boolean> = {}
+    for (const [key, value] of Object.entries(toolsValue)) {
+      result[key.toLowerCase()] = Boolean(value)
+    }
+    return Object.keys(result).length > 0 ? result : undefined
+  }
+
+  // String form: `tools: "read,write,edit"`
+  const tools = toolsValue.split(",").map((t) => t.trim()).filter(Boolean)
   if (tools.length === 0) return undefined
 
   const result: Record<string, boolean> = {}

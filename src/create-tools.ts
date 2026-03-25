@@ -61,17 +61,7 @@ export async function buildStartupSafeCustomAgentSummaries(args: {
   const opencodeUserAgents = loadOpenCodeUserAgents()
   const projectAgents = includeClaudeAgents ? loadProjectAgents(directory) : {}
   const pluginComponents = await loadPluginComponents({ pluginConfig })
-
-  const allAgentNamesFromConfig = [
-    ...Object.keys(claudeUserAgents),
-    ...Object.keys(opencodeUserAgents),
-    ...Object.keys(projectAgents),
-    ...Object.keys(pluginComponents.agents),
-  ]
-  const protectedAgentNames = createProtectedAgentNameSet([
-    ...BUILTIN_AND_RESERVED_AGENT_NAMES,
-    ...allAgentNamesFromConfig,
-  ])
+  const protectedAgentNames = createProtectedAgentNameSet(BUILTIN_AND_RESERVED_AGENT_NAMES)
 
   return [
     ...Object.entries(claudeUserAgents),

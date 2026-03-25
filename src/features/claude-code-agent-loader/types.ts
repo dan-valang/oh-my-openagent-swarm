@@ -10,7 +10,7 @@ export interface AgentFrontmatter {
   name?: string
   description?: string
   model?: string
-  tools?: string
+  tools?: string | Record<string, boolean>
   mode?: "subagent" | "primary" | "all"
 }
 
