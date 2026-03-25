@@ -193,6 +193,7 @@ export async function applyAgentConfig(params: {
         pluginPrometheusOverride: prometheusOverride,
         userCategories: params.pluginConfig.categories,
         currentModel,
+        disabledTools: params.pluginConfig.disabled_tools,
       });
     }
 
