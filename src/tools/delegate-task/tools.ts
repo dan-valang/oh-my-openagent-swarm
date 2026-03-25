@@ -57,6 +57,7 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
   const subagentList = availableSubagents
     .map(sa => `  - ${sa.name}: ${sa.description}`)
     .join("\n")
+    .replace(/@([\w-]+)/g, "$1")
 
   const description = `Spawn agent task with category-based or direct agent selection.
 

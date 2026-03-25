@@ -30,6 +30,7 @@ describe("createSyncSession", () => {
     expect(createCalls[0]?.body).toEqual({
       parentID: "ses_parent",
       title: "test task (@explore subagent)",
+      agent: "explore",
       permission: [
         { permission: "question", action: "deny", pattern: "*" },
       ],
