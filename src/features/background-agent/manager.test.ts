@@ -1668,7 +1668,7 @@ describe("BackgroundManager.resume model persistence", () => {
     // then - model should be passed in prompt body
     expect(promptCalls).toHaveLength(1)
     expect(promptCalls[0].body.model).toEqual({ providerID: "anthropic", modelID: "claude-sonnet-4-20250514" })
-    expect("agent" in promptCalls[0].body).toBe(false)
+    expect(promptCalls[0].body.agent).toBe("explore")
   })
 
   test("should NOT pass model when task has no model (backward compatibility)", async () => {
@@ -1832,7 +1832,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
     expect(task2.status).toBe("pending")
   })
 
-  test("should omit agent when launch has model and keep agent without model", async () => {
+  test("should include agent when launch has model and keep agent without model", async () => {
     // given
     const promptBodies: Array<Record<string, unknown>> = []
     let resolveFirstPromptStarted: (() => void) | undefined
@@ -1894,7 +1894,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
     expect(taskWithoutModel.status).toBe("pending")
     expect(promptBodies).toHaveLength(2)
     expect(promptBodies[0].model).toEqual({ providerID: "anthropic", modelID: "claude-opus-4-6" })
-    expect("agent" in promptBodies[0]).toBe(false)
+    expect(promptBodies[0].agent).toBe("test-agent")
     expect(promptBodies[1].agent).toBe("test-agent")
     expect("model" in promptBodies[1]).toBe(false)
   })
@@ -4706,6 +4706,52 @@ describe("BackgroundManager regression fixes - resume and aborted notification",
 })
 
 describe("BackgroundManager - tool permission spread order", () => {
+  test("startTask includes agent alongside explicit model", async () => {
+    //#given
+    let capturedBody: Record<string, unknown> | undefined
+    const client = {
+      session: {
+        get: async () => ({ data: { directory: "/test/dir" } }),
+        create: async () => ({ data: { id: "session-1" } }),
+        promptAsync: async (args: { path: { id: string }; body: Record<string, unknown> }) => {
+          capturedBody = args.body
+          return {}
+        },
+      },
+    }
+    const manager = new BackgroundManager({ client, directory: tmpdir() } as unknown as PluginInput)
+    const task: BackgroundTask = {
+      id: "task-model-launch",
+      status: "pending",
+      queuedAt: new Date(),
+      description: "test task",
+      prompt: "test prompt",
+      agent: "explore",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+      model: { providerID: "openai", modelID: "gpt-5.4", variant: "high" },
+    }
+    const input: import("./types").LaunchInput = {
+      description: task.description,
+      prompt: task.prompt,
+      agent: task.agent,
+      parentSessionID: task.parentSessionID,
+      parentMessageID: task.parentMessageID,
+      model: task.model,
+    }
+
+    //#when
+    await (manager as unknown as { startTask: (item: { task: BackgroundTask; input: import("./types").LaunchInput }) => Promise<void> })
+      .startTask({ task, input })
+
+    //#then
+    expect(capturedBody?.agent).toBe("explore")
+    expect(capturedBody?.model).toEqual({ providerID: "openai", modelID: "gpt-5.4" })
+    expect(capturedBody?.variant).toBe("high")
+
+    manager.shutdown()
+  })
+
   test("startTask respects explore agent restrictions", async () => {
     //#given
     let capturedTools: Record<string, unknown> | undefined
@@ -4793,6 +4839,50 @@ describe("BackgroundManager - tool permission spread order", () => {
     expect(capturedTools?.task).toBe(false)
     expect(capturedTools?.write).toBe(false)
     expect(capturedTools?.edit).toBe(false)
+
+    manager.shutdown()
+  })
+
+  test("resume includes agent alongside explicit model", async () => {
+    //#given
+    let capturedBody: Record<string, unknown> | undefined
+    const client = {
+      session: {
+        promptAsync: async (args: { path: { id: string }; body: Record<string, unknown> }) => {
+          capturedBody = args.body
+          return {}
+        },
+        abort: async () => ({}),
+      },
+    }
+    const manager = new BackgroundManager({ client, directory: tmpdir() } as unknown as PluginInput)
+    const task: BackgroundTask = {
+      id: "task-model-resume",
+      sessionID: "session-model-resume",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+      description: "resume task",
+      prompt: "resume prompt",
+      agent: "explore",
+      model: { providerID: "openai", modelID: "gpt-5.4", variant: "high" },
+      status: "completed",
+      startedAt: new Date(),
+      completedAt: new Date(),
+    }
+    getTaskMap(manager).set(task.id, task)
+
+    //#when
+    await manager.resume({
+      sessionId: task.sessionID,
+      prompt: "continue",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+    })
+
+    //#then
+    expect(capturedBody?.agent).toBe("explore")
+    expect(capturedBody?.model).toEqual({ providerID: "openai", modelID: "gpt-5.4" })
+    expect(capturedBody?.variant).toBe("high")
 
     manager.shutdown()
   })

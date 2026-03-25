@@ -515,9 +515,7 @@ export class BackgroundManager {
     promptWithModelSuggestionRetry(this.client, {
       path: { id: sessionID },
       body: {
-        // When a model is explicitly provided, omit the agent name so opencode's
-        // built-in agent fallback chain does not override the user-specified model.
-        ...(launchModel ? {} : { agent: input.agent }),
+        agent: input.agent,
         ...(launchModel ? { model: launchModel } : {}),
         ...(launchVariant ? { variant: launchVariant } : {}),
         system: input.skillContent,
@@ -794,9 +792,7 @@ export class BackgroundManager {
     this.client.session.promptAsync({
       path: { id: existingTask.sessionID },
       body: {
-        // When a model is explicitly provided, omit the agent name so opencode's
-        // built-in agent fallback chain does not override the user-specified model.
-        ...(resumeModel ? {} : { agent: existingTask.agent }),
+        agent: existingTask.agent,
         ...(resumeModel ? { model: resumeModel } : {}),
         ...(resumeVariant ? { variant: resumeVariant } : {}),
         tools: (() => {
@@ -924,7 +920,11 @@ export class BackgroundManager {
 
         task.progress.toolCalls += 1
         task.progress.lastTool = partInfo.tool
-        const circuitBreaker = this.cachedCircuitBreakerSettings ?? (this.cachedCircuitBreakerSettings = resolveCircuitBreakerSettings(this.config))
+        let circuitBreaker = this.cachedCircuitBreakerSettings
+        if (!circuitBreaker) {
+          circuitBreaker = resolveCircuitBreakerSettings(this.config)
+          this.cachedCircuitBreakerSettings = circuitBreaker
+        }
         if (partInfo.tool) {
          task.progress.toolCallWindow = recordToolCall(
              task.progress.toolCallWindow,

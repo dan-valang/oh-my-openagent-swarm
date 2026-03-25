@@ -3446,7 +3446,7 @@ describe("sisyphus-task", () => {
   })
 
   describe("subagent_type model extraction (issue #1225)", () => {
-    test("background mode passes matched agent model to manager.launch", async () => {
+    test("background mode keeps matched agent and passes its model to manager.launch", async () => {
       // given - agent with model registered, using subagent_type with run_in_background=true
       const { createDelegateTask } = require("./tools")
       let launchInput: any
@@ -3505,7 +3505,8 @@ describe("sisyphus-task", () => {
         toolContext
       )
 
-      // then - matched agent's model should be passed to manager.launch
+      // then - matched agent and model should be passed to manager.launch
+      expect(launchInput.agent).toBe("explore")
       expect(launchInput.model).toEqual({
         providerID: "anthropic",
         modelID: "claude-haiku-4-5",
