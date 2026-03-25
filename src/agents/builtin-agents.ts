@@ -137,6 +137,37 @@ export async function createBuiltinAgents(
     })
   }
 
+  // Add dynamic agents to result (actual agent configs) so they're available via client.app.agents()
+  const customAgents = Array.isArray(customAgentSummaries) ? customAgentSummaries as Array<{
+    name: string
+    description?: string
+    prompt?: string
+    model?: string
+    tools?: Record<string, boolean>
+  }> : undefined
+
+  if (customAgents) {
+    for (const agent of customAgents) {
+      const lowerName = agent.name.toLowerCase()
+      if (builtinAgentNames.has(lowerName)) continue
+      if (disabledAgentNames.has(lowerName)) continue
+
+      const agentConfig: AgentConfig = {
+        prompt: agent.prompt ?? agent.description ?? `Custom agent: ${agent.name}`,
+        description: agent.description ?? `Custom agent: ${agent.name}`,
+        mode: "subagent",
+      }
+      if (agent.model) {
+        agentConfig.model = agent.model
+      }
+      if (agent.tools) {
+        agentConfig.tools = agent.tools
+      }
+
+      result[agent.name] = agentConfig
+    }
+  }
+
   const sisyphusConfig = maybeCreateSisyphusConfig({
     disabledAgents,
     agentOverrides,

@@ -342,7 +342,7 @@ export const BUILTIN_SUBAGENT_DESCRIPTIONS: Record<string, string> = {
  */
 export const DELEGATION_GUIDANCE = `Delegation priority: subagent_type > category.
 
-- Use subagent_type to invoke a specific specialized agent (explore, librarian, oracle, metis, momus, hephaestus, multimodal-looker, prometheus).
+- Use subagent_type to invoke a specific specialized agent (built-in or custom — full list below).
 - Use category to delegate to Sisyphus-Junior with category-optimized model selection and prompts.
 - Do not provide both. If category is provided, subagent_type is ignored.`
 
