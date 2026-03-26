@@ -57,6 +57,7 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
   const subagentList = availableSubagents
     .map(sa => `  - ${sa.name}: ${sa.description}`)
     .join("\n")
+    .replace(/@([\w-]+)/g, "$1")
 
   const description = `Spawn agent task with category-based or direct agent selection.
 
@@ -117,6 +118,7 @@ ${subagentList}
     },
     async execute(args: DelegateTaskArgs, toolContext) {
       const ctx = toolContext as ToolContextWithMetadata
+      const requestedSubagentType = args.subagent_type
 
       if (args.category) {
         if (args.subagent_type && args.subagent_type !== SISYPHUS_JUNIOR_AGENT) {
@@ -235,7 +237,7 @@ ${subagentList}
           return executeUnstableAgentTask(args, ctx, options, parentContext, agentToUse, categoryModel, systemContent, actualModel)
         }
       } else {
-        const resolution = await resolveSubagentExecution(args, options, parentContext.agent, categoryExamples)
+        const resolution = await resolveSubagentExecution(args, options, parentContext.agent, categoryExamples, inheritedModel)
         if (resolution.error) {
           return resolution.error
         }
@@ -253,6 +255,19 @@ ${subagentList}
         model: categoryModel,
         availableCategories,
         availableSkills,
+      })
+
+      log("[task] dispatch resolved", {
+        description: args.description,
+        category: args.category,
+        requestedSubagentType,
+        resolvedAgent: agentToUse,
+        parentSessionID: parentContext.sessionID,
+        parentAgent: parentContext.agent,
+        runInBackground,
+        model: categoryModel,
+        fallbackChainLength: fallbackChain?.length ?? 0,
+        skillCount: args.load_skills.length,
       })
 
       if (runInBackground) {

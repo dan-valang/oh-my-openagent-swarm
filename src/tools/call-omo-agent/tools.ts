@@ -1,5 +1,6 @@
 import { tool, type PluginInput, type ToolDefinition } from "@opencode-ai/plugin"
 import { ALLOWED_AGENTS, CALL_OMO_AGENT_DESCRIPTION } from "./constants"
+import { resolveCallableAgents } from "./agent-resolver"
 import type { AllowedAgentType, CallOmoAgentArgs, ToolContextWithMetadata } from "./types"
 import type { BackgroundManager } from "../../features/background-agent"
 import type { CategoriesConfig, AgentOverrides } from "../../config/schema"
@@ -65,13 +66,14 @@ export function createCallOmoAgent(
       const toolCtx = toolContext as ToolContextWithMetadata
       log(`[call_omo_agent] Starting with agent: ${args.subagent_type}, background: ${args.run_in_background}`)
 
-      // Case-insensitive agent validation - allows "Explore", "EXPLORE", "explore" etc.
+      const callableAgents = await resolveCallableAgents(ctx.client)
+
       if (
-        !ALLOWED_AGENTS.some(
+        !callableAgents.some(
           (name) => name.toLowerCase() === args.subagent_type.toLowerCase(),
         )
       ) {
-        return `Error: Invalid agent type "${args.subagent_type}". Only ${ALLOWED_AGENTS.join(", ")} are allowed.`
+        return `Error: Invalid agent type "${args.subagent_type}". Only ${callableAgents.join(", ")} are allowed.`
       }
 
       const normalizedAgent = args.subagent_type.toLowerCase() as AllowedAgentType

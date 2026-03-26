@@ -77,3 +77,17 @@ Model resolution: 4-step: override → category-default → provider-fallback �
 - **primary**: Respects UI-selected model, uses fallback chain
 - **subagent**: Uses own fallback chain, ignores UI selection
 - **all**: Available in both contexts (Sisyphus-Junior)
+
+## DYNAMIC/CUSTOM AGENTS
+
+Custom agents can be defined in config folders and are loaded from:
+- `~/.config/claude/agents/*.md` (Claude user agents)
+- `~/.config/opencode/agents/*.md` (OpenCode user agents)
+- `.claude/agents/*.md` (project agents)
+- Claude Code plugins
+
+Custom agents are:
+- Filtered against builtin names to prevent override conflicts (via `agent-override-protection.ts`)
+- Added to `availableAgents[]` for Sisyphus's delegation prompts
+- Added to `result{}` for `client.app.agents()` API availability
+- Deduplicated by lowercase name across all sources

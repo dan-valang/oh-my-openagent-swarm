@@ -51,7 +51,7 @@ export function createAvailableSubagentsWithDynamic(
     }
   }
 
-  return [...builtins, ...dedupedDynamicAgents.values()].filter(
+  return [...dedupedDynamicAgents.values(), ...builtins].filter(
     (agent) => !disabledSet.has(agent.name.toLowerCase()),
   )
 }

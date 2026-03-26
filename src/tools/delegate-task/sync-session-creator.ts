@@ -14,6 +14,7 @@ export async function createSyncSession(
     body: {
       parentID: input.parentSessionID,
       title: `${input.description} (@${input.agentToUse} subagent)`,
+      agent: input.agentToUse,
       permission: QUESTION_DENIED_SESSION_PERMISSION,
     } as Record<string, unknown>,
     query: {

@@ -25,6 +25,8 @@
 
 **8 Built-in Categories**: visual-engineering, ultrabrain, deep, artistry, quick, unspecified-low, unspecified-high, writing
 
+**Custom Subagents**: Dynamic agents from `~/.config/claude/agents/`, `~/.config/opencode/agents/`, `.claude/agents/`, and Claude Code plugins are automatically discovered and available via `subagent_type`.
+
 ### Agent Invocation (1)
 
 | Tool | Factory | Parameters |
@@ -95,7 +97,7 @@
 | ultrabrain | gpt-5.4 xhigh | Hard logic |
 | deep | gpt-5.3-codex medium | Autonomous problem-solving |
 | artistry | gemini-3.1-pro high | Creative approaches |
-| quick | claude-haiku-4-5 | Trivial tasks |
+| quick | gpt-5.4-mini | Trivial tasks |
 | unspecified-low | claude-sonnet-4-6 | Moderate effort |
 | unspecified-high | claude-opus-4-6 max | High effort |
 | writing | kimi-k2p5 | Documentation |

@@ -1,5 +1,5 @@
 declare const require: (name: string) => any
-const { describe, test, expect, beforeEach, afterEach } = require("bun:test")
+const { describe, test, expect, beforeEach, afterEach, spyOn } = require("bun:test")
 import { tmpdir } from "node:os"
 import type { PluginInput } from "@opencode-ai/plugin"
 import type { BackgroundTask, ResumeInput } from "./types"
@@ -1806,9 +1806,9 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       expect(task.sessionID).toBeUndefined()
     })
 
-    test("should return immediately even with concurrency limit", async () => {
-      // given
-      const config = { defaultConcurrency: 1 }
+  test("should return immediately even with concurrency limit", async () => {
+    // given
+    const config = { defaultConcurrency: 1 }
       manager.shutdown()
       manager = new BackgroundManager({ client: mockClient, directory: tmpdir() } as unknown as PluginInput, config)
 
@@ -1828,9 +1828,76 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
 
       // then
       expect(endTime - startTime).toBeLessThan(100) // Should be instant
-      expect(task1.status).toBe("pending")
-      expect(task2.status).toBe("pending")
+    expect(task1.status).toBe("pending")
+    expect(task2.status).toBe("pending")
+  })
+
+  test("should include agent when launch has model and keep agent without model", async () => {
+    // given
+    const promptBodies: Array<Record<string, unknown>> = []
+    let resolveFirstPromptStarted: (() => void) | undefined
+    let resolveSecondPromptStarted: (() => void) | undefined
+    const firstPromptStarted = new Promise<void>((resolve) => {
+      resolveFirstPromptStarted = resolve
     })
+    const secondPromptStarted = new Promise<void>((resolve) => {
+      resolveSecondPromptStarted = resolve
+    })
+    const customClient = {
+      session: {
+        create: async (_args?: unknown) => ({ data: { id: `ses_${crypto.randomUUID()}` } }),
+        get: async () => ({ data: { directory: "/test/dir" } }),
+        prompt: async () => ({}),
+        promptAsync: async (args: { path: { id: string }; body: Record<string, unknown> }) => {
+          promptBodies.push(args.body)
+          if (promptBodies.length === 1) {
+            resolveFirstPromptStarted?.()
+          }
+          if (promptBodies.length === 2) {
+            resolveSecondPromptStarted?.()
+          }
+          return {}
+        },
+        messages: async () => ({ data: [] }),
+        todo: async () => ({ data: [] }),
+        status: async () => ({ data: {} }),
+        abort: async () => ({}),
+      },
+    }
+    manager.shutdown()
+    manager = new BackgroundManager({ client: customClient, directory: tmpdir() } as unknown as PluginInput)
+
+    const launchInputWithModel = {
+      description: "Test task with model",
+      prompt: "Do something",
+      agent: "test-agent",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+      model: { providerID: "anthropic", modelID: "claude-opus-4-6" },
+    }
+    const launchInputWithoutModel = {
+      description: "Test task without model",
+      prompt: "Do something else",
+      agent: "test-agent",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+    }
+
+    // when
+    const taskWithModel = await manager.launch(launchInputWithModel)
+    await firstPromptStarted
+    const taskWithoutModel = await manager.launch(launchInputWithoutModel)
+    await secondPromptStarted
+
+    // then
+    expect(taskWithModel.status).toBe("pending")
+    expect(taskWithoutModel.status).toBe("pending")
+    expect(promptBodies).toHaveLength(2)
+    expect(promptBodies[0].model).toEqual({ providerID: "anthropic", modelID: "claude-opus-4-6" })
+    expect(promptBodies[0].agent).toBe("test-agent")
+    expect(promptBodies[1].agent).toBe("test-agent")
+    expect("model" in promptBodies[1]).toBe(false)
+  })
 
     test("should queue multiple tasks without blocking", async () => {
       // given
@@ -2781,6 +2848,18 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
 })
 
 describe("BackgroundManager.checkAndInterruptStaleTasks", () => {
+  const originalDateNow = Date.now
+  let fixedTime: number
+
+  beforeEach(() => {
+    fixedTime = Date.now()
+    spyOn(globalThis.Date, "now").mockReturnValue(fixedTime)
+  })
+
+  afterEach(() => {
+    Date.now = originalDateNow
+  })
+
    test("should NOT interrupt task running less than 30 seconds (min runtime guard)", async () => {
      const client = {
        session: {
@@ -3027,10 +3106,10 @@ describe("BackgroundManager.checkAndInterruptStaleTasks", () => {
       prompt: "Test",
       agent: "test-agent",
       status: "running",
-      startedAt: new Date(Date.now() - 25 * 60 * 1000),
+      startedAt: new Date(Date.now() - 50 * 60 * 1000),
       progress: {
         toolCalls: 1,
-        lastUpdate: new Date(Date.now() - 21 * 60 * 1000),
+        lastUpdate: new Date(Date.now() - 46 * 60 * 1000),
       },
     }
 
@@ -4627,6 +4706,52 @@ describe("BackgroundManager regression fixes - resume and aborted notification",
 })
 
 describe("BackgroundManager - tool permission spread order", () => {
+  test("startTask includes agent alongside explicit model", async () => {
+    //#given
+    let capturedBody: Record<string, unknown> | undefined
+    const client = {
+      session: {
+        get: async () => ({ data: { directory: "/test/dir" } }),
+        create: async () => ({ data: { id: "session-1" } }),
+        promptAsync: async (args: { path: { id: string }; body: Record<string, unknown> }) => {
+          capturedBody = args.body
+          return {}
+        },
+      },
+    }
+    const manager = new BackgroundManager({ client, directory: tmpdir() } as unknown as PluginInput)
+    const task: BackgroundTask = {
+      id: "task-model-launch",
+      status: "pending",
+      queuedAt: new Date(),
+      description: "test task",
+      prompt: "test prompt",
+      agent: "explore",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+      model: { providerID: "openai", modelID: "gpt-5.4", variant: "high" },
+    }
+    const input: import("./types").LaunchInput = {
+      description: task.description,
+      prompt: task.prompt,
+      agent: task.agent,
+      parentSessionID: task.parentSessionID,
+      parentMessageID: task.parentMessageID,
+      model: task.model,
+    }
+
+    //#when
+    await (manager as unknown as { startTask: (item: { task: BackgroundTask; input: import("./types").LaunchInput }) => Promise<void> })
+      .startTask({ task, input })
+
+    //#then
+    expect(capturedBody?.agent).toBe("explore")
+    expect(capturedBody?.model).toEqual({ providerID: "openai", modelID: "gpt-5.4" })
+    expect(capturedBody?.variant).toBe("high")
+
+    manager.shutdown()
+  })
+
   test("startTask respects explore agent restrictions", async () => {
     //#given
     let capturedTools: Record<string, unknown> | undefined
@@ -4714,6 +4839,50 @@ describe("BackgroundManager - tool permission spread order", () => {
     expect(capturedTools?.task).toBe(false)
     expect(capturedTools?.write).toBe(false)
     expect(capturedTools?.edit).toBe(false)
+
+    manager.shutdown()
+  })
+
+  test("resume includes agent alongside explicit model", async () => {
+    //#given
+    let capturedBody: Record<string, unknown> | undefined
+    const client = {
+      session: {
+        promptAsync: async (args: { path: { id: string }; body: Record<string, unknown> }) => {
+          capturedBody = args.body
+          return {}
+        },
+        abort: async () => ({}),
+      },
+    }
+    const manager = new BackgroundManager({ client, directory: tmpdir() } as unknown as PluginInput)
+    const task: BackgroundTask = {
+      id: "task-model-resume",
+      sessionID: "session-model-resume",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+      description: "resume task",
+      prompt: "resume prompt",
+      agent: "explore",
+      model: { providerID: "openai", modelID: "gpt-5.4", variant: "high" },
+      status: "completed",
+      startedAt: new Date(),
+      completedAt: new Date(),
+    }
+    getTaskMap(manager).set(task.id, task)
+
+    //#when
+    await manager.resume({
+      sessionId: task.sessionID,
+      prompt: "continue",
+      parentSessionID: "parent-session",
+      parentMessageID: "parent-message",
+    })
+
+    //#then
+    expect(capturedBody?.agent).toBe("explore")
+    expect(capturedBody?.model).toEqual({ providerID: "openai", modelID: "gpt-5.4" })
+    expect(capturedBody?.variant).toBe("high")
 
     manager.shutdown()
   })

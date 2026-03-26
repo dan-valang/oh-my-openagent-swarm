@@ -7,10 +7,38 @@ import { log } from "../../shared/logger"
 import type { AgentScope, AgentFrontmatter, ClaudeCodeAgentConfig, LoadedAgent } from "./types"
 import { mapClaudeModelToOpenCode } from "./claude-model-mapper"
 
-function parseToolsConfig(toolsStr?: string): Record<string, boolean> | undefined {
-  if (!toolsStr) return undefined
+/**
+ * Resolve a model string to an OpenCode-native `provider/model` format.
+ *
+ * OpenCode-native IDs (containing "/") are passed through directly.
+ * Bare Claude aliases ("sonnet", "opus", "haiku") and bare claude-* strings
+ * are resolved via mapClaudeModelToOpenCode.
+ */
+function resolveModel(model: string | undefined): string | undefined {
+  if (!model) return undefined
+  const trimmed = model.trim()
+  if (trimmed.length === 0) return undefined
+  // Already a provider/model string — use as-is
+  if (trimmed.includes("/")) return trimmed
+  // Bare alias ("sonnet", "claude-opus-4-6", etc.) — use legacy mapper
+  const mapped = mapClaudeModelToOpenCode(trimmed)
+  return mapped ? `${mapped.providerID}/${mapped.modelID}` : undefined
+}
 
-  const tools = toolsStr.split(",").map((t) => t.trim()).filter(Boolean)
+function parseToolsConfig(toolsValue?: string | Record<string, boolean>): Record<string, boolean> | undefined {
+  if (!toolsValue) return undefined
+
+  // YAML object form: `tools:\n  read: true\n  write: true`
+  if (typeof toolsValue === "object") {
+    const result: Record<string, boolean> = {}
+    for (const [key, value] of Object.entries(toolsValue)) {
+      result[key.toLowerCase()] = Boolean(value)
+    }
+    return Object.keys(result).length > 0 ? result : undefined
+  }
+
+  // String form: `tools: "read,write,edit"`
+  const tools = toolsValue.split(",").map((t) => t.trim()).filter(Boolean)
   if (tools.length === 0) return undefined
 
   const result: Record<string, boolean> = {}
@@ -50,22 +78,34 @@ function loadAgentsFromDir(agentsDir: string, scope: AgentScope): LoadedAgent[] 
 
        const formattedDescription = `(${scope}) ${originalDescription}`
 
-       const mappedModelOverride = mapClaudeModelToOpenCode(data.model)
-       const modelString = mappedModelOverride
-         ? `${mappedModelOverride.providerID}/${mappedModelOverride.modelID}`
-         : undefined
+       const modelString = resolveModel(data.model)
 
        const config: ClaudeCodeAgentConfig = {
          description: formattedDescription,
-         mode: data.mode || "subagent",
+         // Only set mode if explicitly specified — let OpenCode decide the default
+         // otherwise every agent without a mode field gets forced to "subagent"
+         ...(data.mode ? { mode: data.mode } : {}),
          prompt: body.trim(),
          ...(modelString ? { model: modelString } : {}),
        }
 
        const toolsConfig = parseToolsConfig(data.tools)
-      if (toolsConfig) {
-        config.tools = toolsConfig
-      }
+       if (toolsConfig) {
+         config.tools = toolsConfig
+       }
+
+       if (data.permission) {
+         config.permission = data.permission as ClaudeCodeAgentConfig["permission"]
+       }
+
+       if (data.temperature !== undefined) {
+         config.temperature = data.temperature
+       }
+
+       const fallbackModels = data.fallback_models
+       if (Array.isArray(fallbackModels) && fallbackModels.length > 0) {
+         config.fallback_models = fallbackModels
+       }
 
       agents.push({
         name,
