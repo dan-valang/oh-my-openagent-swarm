@@ -118,6 +118,7 @@ ${subagentList}
     },
     async execute(args: DelegateTaskArgs, toolContext) {
       const ctx = toolContext as ToolContextWithMetadata
+      const requestedSubagentType = args.subagent_type
 
       if (args.category) {
         if (args.subagent_type && args.subagent_type !== SISYPHUS_JUNIOR_AGENT) {
@@ -254,6 +255,19 @@ ${subagentList}
         model: categoryModel,
         availableCategories,
         availableSkills,
+      })
+
+      log("[task] dispatch resolved", {
+        description: args.description,
+        category: args.category,
+        requestedSubagentType,
+        resolvedAgent: agentToUse,
+        parentSessionID: parentContext.sessionID,
+        parentAgent: parentContext.agent,
+        runInBackground,
+        model: categoryModel,
+        fallbackChainLength: fallbackChain?.length ?? 0,
+        skillCount: args.load_skills.length,
       })
 
       if (runInBackground) {

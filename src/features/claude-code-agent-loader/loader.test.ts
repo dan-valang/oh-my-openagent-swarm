@@ -40,12 +40,10 @@ describe("loadUserAgents", () => {
     expect(loadUserAgents()).toEqual({
       researcher: {
         description: "(user) Claude researcher",
-        mode: "subagent",
         prompt: "Prompt for researcher.",
       },
       "workflow-navigator": {
         description: "(user) OpenCode workflow",
-        mode: "subagent",
         prompt: "Prompt for workflow-navigator.",
       },
     })
@@ -60,8 +58,24 @@ describe("loadUserAgents", () => {
 
     expect(result["qa-engineer"]).toEqual({
       description: "(user) OpenCode QA",
-      mode: "subagent",
       prompt: "Prompt for qa-engineer.",
+    })
+  })
+
+  test("preserves explicit mode from frontmatter", async () => {
+    mkdirSync(join(OPENCODE_DIR, "agents"), { recursive: true })
+    writeFileSync(
+      join(OPENCODE_DIR, "agents", "architect.md"),
+      "---\ndescription: Architecture specialist\nmode: all\n---\nPrompt for architect.\n",
+    )
+
+    const { loadUserAgents } = await import("./loader")
+    const result = loadUserAgents()
+
+    expect(result.architect).toEqual({
+      description: "(user) Architecture specialist",
+      mode: "all",
+      prompt: "Prompt for architect.",
     })
   })
 })

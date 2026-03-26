@@ -9,6 +9,7 @@ import { getSessionTools } from "../../shared/session-tools-store"
 import { SessionCategoryRegistry } from "../../shared/session-category-registry"
 import { QUESTION_DENIED_SESSION_PERMISSION } from "../../shared/question-denied-session-permission"
 import { setSessionFallbackChain } from "../../hooks/model-fallback/hook"
+import { log } from "../../shared/logger"
 
 export async function executeBackgroundTask(
   args: DelegateTaskArgs,
@@ -88,6 +89,20 @@ export async function executeBackgroundTask(
     const taskMetadataBlock = sessionId
       ? `\n\n<task_metadata>\nsession_id: ${sessionId}\ntask_id: ${sessionId}\nbackground_task_id: ${task.id}\n</task_metadata>`
       : ""
+
+    log("[task] background launch ready", {
+      taskID: task.id,
+      sessionID: sessionId ?? null,
+      description: task.description,
+      requestedSubagentType: args.subagent_type,
+      resolvedAgent: task.agent,
+      
+      category: args.category,
+      parentSessionID: parentContext.sessionID,
+      parentAgent: parentContext.agent,
+      model: categoryModel,
+      status: task.status,
+    })
 
     return `Background task launched.
 

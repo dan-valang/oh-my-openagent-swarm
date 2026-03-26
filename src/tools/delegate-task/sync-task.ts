@@ -65,6 +65,17 @@ export async function executeSyncTask(
     setSessionAgent(sessionID, agentToUse)
     setSessionFallbackChain(sessionID, fallbackChain)
 
+    log("[task] sync session created", {
+      sessionID,
+      parentSessionID: parentContext.sessionID,
+      description: args.description,
+      requestedSubagentType: args.subagent_type,
+      resolvedAgent: agentToUse,
+      category: args.category,
+      model: categoryModel,
+      spawnDepth: spawnContext.childDepth,
+    })
+
     if (args.category) {
       SessionCategoryRegistry.register(sessionID, args.category)
     }
