@@ -124,6 +124,9 @@ function isCompactionAgent(agent: string): boolean {
   return agent.toLowerCase() === "compaction";
 }
 
+const SESSION_RECOVERY_CONTINUE_COOLDOWN_MS = 5000;
+const sessionRecoveryContinueCooldown = new Map<string, number>();
+
 type EventInput = Parameters<NonNullable<NonNullable<CreatedHooks["writeExistingFileGuard"]>["event"]>>[0];
 export function createEventHandler(args: {
   ctx: PluginContext;
@@ -504,7 +507,14 @@ export function createEventHandler(args: {
             sessionID === getMainSessionID() &&
             !hooks.stopContinuationGuard?.isStopped(sessionID)
           ) {
-            // Trigger compaction before sending "continue" to avoid double-sending continuation
+            const now = Date.now();
+            const lastContinue = sessionRecoveryContinueCooldown.get(sessionID) ?? 0;
+            if (now - lastContinue < SESSION_RECOVERY_CONTINUE_COOLDOWN_MS) {
+              log("[event] Skipped recovery continue: cooldown active", { sessionID, cooldownRemaining: SESSION_RECOVERY_CONTINUE_COOLDOWN_MS - (now - lastContinue) });
+              return;
+            }
+            sessionRecoveryContinueCooldown.set(sessionID, now);
+
             await pluginContext.client.session
               .summarize({
                 path: { id: sessionID },
@@ -515,13 +525,15 @@ export function createEventHandler(args: {
                 log("[event] compaction before recovery continue failed:", { sessionID, error: err });
               });
 
-            await pluginContext.client.session
-              .prompt({
+            if (pluginContext.client.session.promptAsync) {
+              pluginContext.client.session.promptAsync({
                 path: { id: sessionID },
                 body: { parts: [{ type: "text", text: "continue" }] },
                 query: { directory: pluginContext.directory },
-              })
-              .catch(() => {});
+              }).catch((err: unknown) => {
+                log("[event] recovery continue failed:", { sessionID, error: err });
+              });
+            }
           }
         }
         // Second, try model fallback for model errors (rate limit, quota, provider issues, etc.)
