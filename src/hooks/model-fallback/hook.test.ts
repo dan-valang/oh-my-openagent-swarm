@@ -3,6 +3,24 @@ const { beforeEach, describe, expect, mock, test } = require("bun:test")
 
 const readConnectedProvidersCacheMock = mock(() => null)
 const readProviderModelsCacheMock = mock(() => null)
+const selectFallbackProviderMock = mock((providers: string[], preferredProviderID?: string) => {
+  const connectedProviders = readConnectedProvidersCacheMock()
+  if (connectedProviders) {
+    const connectedSet = new Set(connectedProviders.map((provider: string) => provider.toLowerCase()))
+
+    for (const provider of providers) {
+      if (connectedSet.has(provider.toLowerCase())) {
+        return provider
+      }
+    }
+
+    if (preferredProviderID && connectedSet.has(preferredProviderID.toLowerCase())) {
+      return preferredProviderID
+    }
+  }
+
+  return providers[0] || preferredProviderID || "opencode"
+})
 const transformModelForProviderMock = mock((provider: string, model: string) => {
   if (provider === "github-copilot") {
     return model
@@ -31,6 +49,10 @@ mock.module("../../shared/provider-model-id-transform", () => ({
   transformModelForProvider: transformModelForProviderMock,
 }))
 
+mock.module("../../shared/model-error-classifier", () => ({
+  selectFallbackProvider: selectFallbackProviderMock,
+}))
+
 import {
   clearPendingModelFallback,
   createModelFallbackHook,
@@ -44,6 +66,7 @@ describe("model fallback hook", () => {
     readProviderModelsCacheMock.mockReturnValue(null)
     readConnectedProvidersCacheMock.mockClear()
     readProviderModelsCacheMock.mockClear()
+    selectFallbackProviderMock.mockClear()
 
     clearPendingModelFallback("ses_model_fallback_main")
     clearPendingModelFallback("ses_model_fallback_ghcp")
@@ -252,6 +275,50 @@ describe("model fallback hook", () => {
       modelID: "gpt-5.2",
     })
     expect(output.message["variant"]).toBeUndefined()
+    clearPendingModelFallback(sessionID)
+  })
+
+  test("uses connected preferred provider when fallback entry providers are disconnected", async () => {
+    //#given
+    const sessionID = "ses_model_fallback_preferred_provider"
+    clearPendingModelFallback(sessionID)
+    readConnectedProvidersCacheMock.mockReturnValue(["provider-x"])
+
+    const hook = createModelFallbackHook() as unknown as {
+      "chat.message"?: (
+        input: { sessionID: string },
+        output: { message: Record<string, unknown>; parts: Array<{ type: string; text?: string }> },
+      ) => Promise<void>
+    }
+
+    setSessionFallbackChain(sessionID, [
+      { providers: ["provider-y"], model: "fallback-model" },
+    ])
+
+    expect(
+      setPendingModelFallback(
+        sessionID,
+        "Sisyphus (Ultraworker)",
+        "provider-x",
+        "current-model",
+      ),
+    ).toBe(true)
+
+    const output = {
+      message: {
+        model: { providerID: "provider-x", modelID: "current-model" },
+      },
+      parts: [{ type: "text", text: "continue" }],
+    }
+
+    //#when
+    await hook["chat.message"]?.({ sessionID }, output)
+
+    //#then
+    expect(output.message["model"]).toEqual({
+      providerID: "provider-x",
+      modelID: "fallback-model",
+    })
     clearPendingModelFallback(sessionID)
   })
 
