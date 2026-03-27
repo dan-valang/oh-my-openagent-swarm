@@ -340,11 +340,22 @@ export const BUILTIN_SUBAGENT_DESCRIPTIONS: Record<string, string> = {
  * Rule of thumb: prefer `subagent_type` for specialized work, and use `category`
  * only when you want Sisyphus-Junior with category-driven model selection.
  */
-export const DELEGATION_GUIDANCE = `Delegation priority: subagent_type > category.
+export const DELEGATION_GUIDANCE = `Delegation priority: specialized agents > builtin agents > category.
 
-- Use subagent_type to invoke a specific specialized agent (built-in or custom — full list below).
-- Use category to delegate to Sisyphus-Junior with category-optimized model selection and prompts.
-- Do not provide both. If category is provided, subagent_type is ignored.`
+Priority 1 — Specialized agents (domain-expert custom agents, use subagent_type):
+  workflow-navigator, backend-architect, fullstack-developer, devops-engineer,
+  database-admin, frontend-developer, qa-engineer, integration-tester,
+  lambda-tester, database-tester, researcher, reviewer, scribe,
+  ui-ux-designer, code-architect
+
+Priority 2 — Builtin agents (plugin-provided, use subagent_type):
+  oracle, hephaestus, explore, librarian, metis, momus, prometheus, multimodal-looker
+
+Priority 3 — Category (Sisyphus-Junior with category-optimized model selection):
+  quick, deep, ultrabrain, visual-engineering, writing, unspecified-low, unspecified-high
+
+ALWAYS prefer a specialized agent for domain work before falling back to category.
+Do not provide both category and subagent_type. If category is provided, subagent_type is ignored.`
 
 /**
  * System prompt prepended to plan agent invocations.

@@ -90,8 +90,8 @@ ${DELEGATION_GUIDANCE}
   - category: For task delegation (uses Sisyphus-Junior with category-optimized model selection and prompts)
     Available categories:
 ${categoryList}
-  - subagent_type: For direct agent invocation (explore, librarian, oracle, etc.)
-    Available subagents:
+  - subagent_type: For direct agent invocation — prefer specialized agents first (workflow-navigator, backend-architect, fullstack-developer, devops-engineer, etc.), then builtin agents (oracle, explore, librarian, hephaestus, etc.)
+    Available subagents (specialized agents listed first, then builtins):
 ${subagentList}
   - run_in_background: true=async (returns task_id), false=sync (waits). Default: false. Use background=true ONLY for parallel exploration with 5+ independent queries.
   - session_id: Existing Task session to continue (from previous task output). Continues agent with FULL CONTEXT PRESERVED - saves tokens, maintains continuity.
